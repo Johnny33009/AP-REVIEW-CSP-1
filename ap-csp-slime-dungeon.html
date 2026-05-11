@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP CSP: Escape the Slime Dungeon</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1428;
+    color: #f5f3eb;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+  #game-container {
+    max-width: 760px;
+    width: 100%;
+    background: #2a2540;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+  h1, h2, h3 { margin: 0 0 8px; font-weight: 600; }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 10px 16px;
+    border: 2px solid #5a5474;
+    background: #3d3658;
+    color: #f5f3eb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  button:hover:not(:disabled) {
+    background: #4d4670;
+    transform: translateY(-1px);
+  }
+  button:active:not(:disabled) { transform: translateY(0); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  canvas { display: block; }
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <h2 class="sr-only">A Minecraft-themed maze escape game where players answer AP CSP review questions</h2>
+  <div id="screen"></div>
+</div>
+
+<script>
+(function() {
+  const QUESTIONS = [
+    { bi: 1, d: 1, q: "Which phase typically comes FIRST in the program development life cycle?", choices: ["Testing", "Investigating user needs", "Writing code", "Documentation"], answer: 1, exp: "You can't design or code effectively without first understanding who the program is for." },
+    { bi: 1, d: 1, q: "A logic error is BEST described as:", choices: ["Program won't run at all", "Program runs but produces wrong results", "User typed wrong input", "Hardware problem"], answer: 1, exp: "Logic errors let the program run but produce wrong output." },
+    { bi: 2, d: 1, q: "How many values can be represented using 4 bits?", choices: ["4", "8", "16", "32"], answer: 2, exp: "2^n values with n bits. 2^4 = 16." },
+    { bi: 2, d: 1, q: "Lossy compression is BEST described as:", choices: ["Preserves every bit", "Discards some data for smaller files", "Only works on text", "Needs no decompression"], answer: 1, exp: "Lossy sacrifices some data for smaller size (JPEG, MP3)." },
+    { bi: 3, d: 1, q: "Selection in an algorithm refers to:", choices: ["Picking a language", "Top-to-bottom order", "IF conditions deciding which code runs", "Repeating code"], answer: 2, exp: "Selection = conditional execution (IF/ELSE)." },
+    { bi: 3, d: 1, q: "What does APPEND(list, value) do?", choices: ["Removes value from list", "Adds value to end of list", "Replaces all values", "Sorts the list"], answer: 1, exp: "APPEND adds an element to the end of a list." },
+    { bi: 4, d: 1, q: "A protocol is BEST described as:", choices: ["A type of hardware", "Agreed-upon rules for device communication", "A programming language", "Antivirus software"], answer: 1, exp: "Protocols (TCP/IP, HTTP, DNS) are the rules for communication." },
+    { bi: 4, d: 1, q: "What does an IP address identify?", choices: ["A specific person", "A device connected to a network", "A type of website", "A file on a computer"], answer: 1, exp: "IP addresses identify devices (computers, phones, servers) on a network." },
+    { bi: 4, d: 1, q: "Bandwidth refers to:", choices: ["The number of devices on a network", "The maximum amount of data that can be sent per unit of time", "The physical length of a cable", "The age of a network connection"], answer: 1, exp: "Bandwidth is the data transmission capacity, typically measured in bits per second." },
+    { bi: 5, d: 1, q: "Open-source software has source code that is:", choices: ["Freely available to view, use, modify", "Hidden from all users", "Requires payment to one company", "Has no license"], answer: 0, exp: "Open-source publishes code under a license permitting use and modification." },
+    { bi: 5, d: 1, q: "Crowdsourcing is BEST described as:", choices: ["Cloud storage", "Getting input/content from many people online", "Encryption method", "Network type"], answer: 1, exp: "Crowdsourcing leverages contributions from many people online." },
+    { bi: 5, d: 1, q: "A 'creative commons' license is used to:", choices: ["Prevent any use of a work", "Grant others permission to use creative work under specified conditions", "Charge for software", "Track piracy"], answer: 1, exp: "Creative Commons licenses let creators specify how their work can be shared and reused." },
+    { bi: 1, d: 1, q: "Best example of effective collaboration on a remote team?", choices: ["Each writes their own version", "Use comments and version control", "One writes, others watch", "Avoid talking to prevent conflict"], answer: 1, exp: "Communication and version control combine diverse perspectives." },
+
+    { bi: 1, d: 2, q: "Most effective debugging strategy for incorrect output?", choices: ["Rewrite from scratch", "Trace variable values at key points", "Try different inputs", "Delete suspicious code"], answer: 1, exp: "Tracing values locates where actual behavior diverges from expected." },
+    { bi: 2, d: 2, q: "Which is an example of METADATA about test scores?", choices: ["The scores themselves", "Date taken and grader name", "Average of scores", "Student names"], answer: 1, exp: "Metadata is data ABOUT data: timestamps, source, author." },
+    { bi: 2, d: 2, q: "Analog data differs from digital because analog data:", choices: ["Is more accurate", "Only stores on tape", "Has continuous values", "Can't be processed"], answer: 2, exp: "Analog is continuous; digital uses discrete (sampled) values." },
+    { bi: 2, d: 2, q: "An image stored using more bits per pixel will have:", choices: ["Smaller file size", "Greater color depth and larger size", "Faster loading time", "Better compression automatically"], answer: 1, exp: "More bits per pixel = more possible colors = larger file." },
+    { bi: 3, d: 2, q: "Best use case for a list (array) instead of variables?", choices: ["200 student names", "One password", "Current date", "Login status"], answer: 0, exp: "Lists shine when you have many values of the same type." },
+    { bi: 3, d: 2, q: "Primary benefit of a procedure with parameters?", choices: ["Runs faster automatically", "Code reuse and abstraction with different inputs", "Removes variables", "Prevents all errors"], answer: 1, exp: "Procedures with parameters enable abstraction and reuse." },
+    { bi: 3, d: 2, q: "Binary search requires that:", choices: ["List be sorted", "Only numbers", "Very small list", "Value appears once"], answer: 0, exp: "Binary search needs a sorted list to halve the search space." },
+    { bi: 4, d: 2, q: "Packet switching means:", choices: ["Single dedicated wire", "Data split into pieces, different routes, reassembled", "One user at a time", "Packets always in order"], answer: 1, exp: "Packets route independently and reassemble at the destination." },
+    { bi: 4, d: 2, q: "Relationship between Internet and World Wide Web?", choices: ["Same thing", "Web runs on top of the Internet", "Internet runs on Web", "Neither uses the other"], answer: 1, exp: "Internet = infrastructure. Web = one service built on it." },
+    { bi: 4, d: 2, q: "Why is the Internet fault-tolerant?", choices: ["Never has outages", "Multiple paths, traffic reroutes around failures", "One central backup server", "Uses only fiber"], answer: 1, exp: "Redundant paths let data reroute when a link fails." },
+    { bi: 4, d: 2, q: "What is the purpose of DNS (Domain Name System)?", choices: ["Encrypts internet traffic", "Translates domain names like google.com into IP addresses", "Stores website content", "Speeds up downloads"], answer: 1, exp: "DNS is the Internet's address book — it maps human-readable names to numeric IP addresses." },
+    { bi: 4, d: 2, q: "Scalability of a network refers to its ability to:", choices: ["Run faster over time", "Handle increasing numbers of users and devices", "Resist hackers", "Use less electricity"], answer: 1, exp: "A scalable network can grow to handle more users without breaking — the Internet's design is highly scalable." },
+    { bi: 5, d: 2, q: "Example of the DIGITAL DIVIDE?", choices: ["New social media app", "Rural areas have slower broadband than urban", "Website redesign", "OS preference"], answer: 1, exp: "Digital divide = unequal access to computing across communities." },
+    { bi: 5, d: 2, q: "Why be careful posting personal info online?", choices: ["Slows your computer", "Can be copied and archived, hard to remove", "Uses electricity", "Increases brightness"], answer: 1, exp: "Information can be cached and archived indefinitely." },
+    { bi: 5, d: 2, q: "Multi-factor authentication improves security by requiring:", choices: ["Longer password", "Two+ types of verification (password AND phone code)", "Weekly password change", "Faster computer"], answer: 1, exp: "MFA combines factors so a stolen password alone is not enough." },
+    { bi: 5, d: 2, q: "Best example of a PII concern?", choices: ["Weather app forecast", "Site collecting name, address, SSN without consent", "Calculator app", "Game high score"], answer: 1, exp: "PII (name, address, SSN) identifies a person and needs careful handling." },
+    { bi: 5, d: 2, q: "Symmetric encryption uses:", choices: ["A different key for encryption and decryption", "The same key for both encryption and decryption", "No keys at all", "A public key only"], answer: 1, exp: "Symmetric encryption uses one shared key. Asymmetric (public-key) uses a pair of different keys." },
+    { bi: 5, d: 2, q: "A phishing attack typically involves:", choices: ["Brute-forcing a password", "Tricking users into revealing credentials via fake messages or sites", "Physically stealing a computer", "Crashing a server with traffic"], answer: 1, exp: "Phishing uses social engineering — fake emails, texts, or websites — to trick users into giving up info." },
+
+    { bi: 2, d: 3, q: "Major limitation when analyzing large datasets?", choices: ["Numbers over 1M can't process", "Cleaning, filtering, bias detection is hard", "Always inaccurate", "Patterns are impossible"], answer: 1, exp: "Cleaning, filtering, and bias detection are the main big-data challenges." },
+    { bi: 3, d: 3, q: "After x<-5, y<-3, x<-x+y, y<-x-y, what does DISPLAY(x,y) show?", choices: ["5 3", "8 5", "8 3", "5 8"], answer: 1, exp: "x becomes 8, then y becomes 8-3=5. Output: 8 5." },
+    { bi: 3, d: 3, q: "isEven(n) returns true if n is even. Equivalent to NOT isEven(n)?", choices: ["isEven(n+1)", "isEven(n)=true", "isEven(n*2)", "n MOD 2 = 0"], answer: 0, exp: "If n is odd, n+1 is even, so isEven(n+1) is true exactly when n is odd." },
+    { bi: 3, d: 3, q: "An 'undecidable' problem means:", choices: ["Takes a long time", "No algorithm gives correct yes/no for every input", "Only humans can solve", "Requires internet"], answer: 1, exp: "Undecidable: no algorithm guaranteed correct for every input. (Halting problem.)" },
+    { bi: 3, d: 3, q: "Example of a reasonable-time algorithm?", choices: ["Steps grow as 2^n", "Steps grow as n^2", "Try every password", "Check all subsets"], answer: 1, exp: "Polynomial-time (n^2) is reasonable; exponential (2^n) is not." },
+    { bi: 4, d: 3, q: "Parallel computing differs from sequential because it:", choices: ["Runs slower", "Performs operations simultaneously on multiple processors", "Only runs one program", "Requires Internet"], answer: 1, exp: "Parallel uses multiple processors to do work simultaneously." },
+    { bi: 4, d: 3, q: "If a sequential task takes 60 seconds and the parallelizable portion takes 40 seconds, what's the SHORTEST possible time with parallel computing on 4 processors?", choices: ["10 seconds", "20 seconds", "30 seconds", "60 seconds"], answer: 2, exp: "Sequential portion (20s) + parallel portion done across 4 processors (40/4 = 10s) = 30 seconds total." },
+    { bi: 4, d: 3, q: "Distributed computing is BEST described as:", choices: ["Computing on a single very fast computer", "Using multiple networked computers to work on parts of a problem", "Distributing software to many users", "Splitting one file across many drives"], answer: 1, exp: "Distributed computing breaks a problem across many networked machines (think SETI@home, blockchain nodes, cloud clusters)." },
+    { bi: 5, d: 3, q: "Hiring algorithm trained on biased data favors men. This is:", choices: ["Syntax error", "Algorithmic bias from training data", "Hardware failure", "Lossy compression"], answer: 1, exp: "Bias in training data propagates into the algorithm." },
+    { bi: 5, d: 3, q: "Public-key (asymmetric) encryption works because:", choices: ["The public key can decrypt anything", "Data encrypted with a public key can only be decrypted with the matching private key", "Both keys are kept secret", "It uses no math"], answer: 1, exp: "Public keys encrypt; only the matching private key decrypts. This is how HTTPS and digital signatures work." },
+    { bi: 3, d: 3, q: "REPEAT 3 TIMES { x <- x+2 }. If x starts at 1, what is x at the end?", choices: ["3", "5", "7", "9"], answer: 2, exp: "x: 1 -> 3 -> 5 -> 7. Three iterations of +2 starting at 1." },
+    { bi: 3, d: 3, q: "Trace: IF (a>b) AND (b>c) THEN DISPLAY 'sorted'. With a=5, b=7, c=3, output is:", choices: ["sorted", "nothing", "5 7 3", "error"], answer: 1, exp: "a>b is FALSE (5>7 is false), so the AND fails - nothing displays." },
+
+    { bi: 3, d: 4, q: "BOSS: A procedure mystery(n) returns n if n<2, else mystery(n-1) + mystery(n-2). What is mystery(5)?", choices: ["5", "7", "8", "13"], answer: 0, exp: "Fibonacci-style: m(0)=0,m(1)=1,m(2)=1,m(3)=2,m(4)=3,m(5)=5." },
+    { bi: 3, d: 4, q: "BOSS: A list L = [3,1,4,1,5]. After REMOVE(L,2) (remove at index 2, 1-based), L is:", choices: ["[3,4,1,5]", "[3,1,1,5]", "[1,4,1,5]", "[3,1,4,5]"], answer: 0, exp: "AP CSP uses 1-based indexing. Index 2 is the '1', removing it gives [3,4,1,5]." },
+    { bi: 2, d: 4, q: "BOSS: A 24-bit color uses 8 bits per channel (RGB). How many distinct colors can it represent?", choices: ["256", "65,536", "16,777,216", "4,294,967,296"], answer: 2, exp: "2^24 = 16,777,216. Each of R, G, B has 256 values; 256 cubed = 16.7M." },
+    { bi: 4, d: 4, q: "BOSS: Why does HTTPS provide more security than HTTP?", choices: ["It's faster", "It encrypts data in transit using TLS", "It compresses better", "It uses a different port"], answer: 1, exp: "HTTPS layers TLS encryption over HTTP so data can't be read in transit." },
+    { bi: 3, d: 4, q: "BOSS: Procedure f(L): FOR EACH x IN L { IF x>0 THEN APPEND(result,x*2) }. Given L=[-1,3,0,2,-5], result is:", choices: ["[-2,6,0,4,-10]", "[6,4]", "[3,2]", "[-1,0,-5]"], answer: 1, exp: "Only positives (3 and 2) pass the IF. Each doubled: [6, 4]." },
+    { bi: 3, d: 4, q: "BOSS: A robot starts facing EAST. ROTATE_LEFT, ROTATE_LEFT, ROTATE_RIGHT. Which direction does it now face?", choices: ["North", "South", "East", "West"], answer: 0, exp: "East -> North (left) -> West (left) -> North (right). Final: North." },
+    { bi: 3, d: 4, q: "BOSS: count <- 0. FOR i FROM 1 TO 5 { FOR j FROM 1 TO i { count <- count+1 } }. Final value of count?", choices: ["5", "10", "15", "25"], answer: 2, exp: "Inner loop runs i times for each i. Total: 1+2+3+4+5 = 15." },
+    { bi: 3, d: 4, q: "BOSS: A binary search on a sorted list of 1,024 items takes AT MOST how many comparisons?", choices: ["10", "32", "512", "1024"], answer: 0, exp: "log2(1024) = 10. Binary search halves the search space each step." },
+    { bi: 2, d: 4, q: "BOSS: A song file is 4 MB at 128 kbps. Approximately how long is the song? (1 MB ~ 8,000 kilobits)", choices: ["30 seconds", "1 minute", "4 minutes", "10 minutes"], answer: 2, exp: "4 MB ~ 32,000 kilobits. At 128 kbps: 32,000 / 128 = 250 seconds ~ 4 minutes." },
+    { bi: 4, d: 4, q: "BOSS: A network sends 6 packets that arrive in order 3, 1, 5, 2, 6, 4. How does the receiver reconstruct the message?", choices: ["Discards out-of-order packets", "Uses sequence numbers in each packet to reorder them", "Requests retransmission of all packets", "Cannot reconstruct it"], answer: 1, exp: "Each packet has a sequence number; TCP reassembles them in correct order at the destination." },
+    { bi: 5, d: 4, q: "BOSS: A company encrypts user passwords using a one-way hash. Why is this MORE secure than storing them as plain text?", choices: ["Hashes are faster to read", "Even if the database is breached, the original passwords can't easily be recovered", "Hashes use less storage", "Hashes are always shorter"], answer: 1, exp: "Hash functions are one-way — you can verify a password by hashing the input and comparing, but can't reverse the hash to get the original." },
+    { bi: 5, d: 4, q: "BOSS: Which scenario BEST illustrates the citizen-science model of crowdsourcing?", choices: ["A company outsources coding to a foreign country", "Volunteers worldwide classify galaxy images for astronomers", "A single PhD student writes a thesis", "A startup gets venture funding"], answer: 1, exp: "Citizen science (like Galaxy Zoo, Foldit) leverages volunteer contributors to do tasks at a scale no single team could." }
+  ];
+
+  const BI_NAMES = {1: "Creative Development", 2: "Data", 3: "Algorithms & Programming", 4: "Computer Systems & Networks", 5: "Impact of Computing"};
+  const BI_COLORS = {
+    1: { bg: "#EEEDFE", fg: "#3C3489" },
+    2: { bg: "#E1F5EE", fg: "#085041" },
+    3: { bg: "#E6F1FB", fg: "#0C447C" },
+    4: { bg: "#FAECE7", fg: "#712B13" },
+    5: { bg: "#FBEAF0", fg: "#72243E" }
+  };
+
+  // Slime block colors per tier — kept distinct so students see the difficulty
+  const TIER_COLORS = {
+    1: { body: "#5DCAA5", dark: "#0F6E56", light: "#9FE1CB", core: "#0A4A3A", name: "Green slime block" },
+    2: { body: "#378ADD", dark: "#185FA5", light: "#85B7EB", core: "#0F3D6E", name: "Blue slime block" },
+    3: { body: "#D85A30", dark: "#993C1D", light: "#F0997B", core: "#6E2913", name: "Magma slime block" },
+    4: { body: "#A32D2D", dark: "#501313", light: "#E24B4A", core: "#330808", name: "Boss slime block" }
+  };
+
+  const TIER_LABELS = {1: "Easy", 2: "Medium", 3: "Hard", 4: "Boss"};
+
+  const COLS = 15;
+  const ROWS = 11;
+  const CELL = 44;
+
+  function generateMaze() {
+    const grid = Array.from({length: ROWS}, () => Array(COLS).fill(1));
+    function carve(x, y) {
+      grid[y][x] = 0;
+      const dirs = [[0,-2],[2,0],[0,2],[-2,0]];
+      for (let i = dirs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [dirs[i], dirs[j]] = [dirs[j], dirs[i]];
+      }
+      for (const [dx, dy] of dirs) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx > 0 && nx < COLS - 1 && ny > 0 && ny < ROWS - 1 && grid[ny][nx] === 1) {
+          grid[y + dy/2][x + dx/2] = 0;
+          carve(nx, ny);
+        }
+      }
+    }
+    carve(1, 1);
+    for (let y = 1; y < ROWS - 1; y++) {
+      for (let x = 1; x < COLS - 1; x++) {
+        if (grid[y][x] === 1 && Math.random() < 0.06) {
+          const horizontalOpen = grid[y][x-1] === 0 && grid[y][x+1] === 0;
+          const verticalOpen = grid[y-1] && grid[y+1] && grid[y-1][x] === 0 && grid[y+1][x] === 0;
+          if (horizontalOpen || verticalOpen) grid[y][x] = 0;
+        }
+      }
+    }
+    // Find a portal location that's GUARANTEED to be reachable from (1,1).
+    // Strategy: scan from bottom-right inward looking for an open cell, then
+    // turn it into a portal. The recursive backtracker guarantees all carved
+    // cells are reachable from the start.
+    let portalX = -1, portalY = -1;
+    outer: for (let y = ROWS - 2; y >= 1; y--) {
+      for (let x = COLS - 2; x >= 1; x--) {
+        if (grid[y][x] === 0) {
+          portalX = x;
+          portalY = y;
+          break outer;
+        }
+      }
+    }
+    // Fallback (should never happen with a properly carved maze)
+    if (portalX === -1) { portalX = 1; portalY = 1; }
+    grid[portalY][portalX] = 2;
+    return { grid, portalX, portalY };
+  }
+
+  // BFS: returns true if (tx,ty) is reachable from (sx,sy) treating walls as blocking
+  function isReachable(grid, sx, sy, tx, ty) {
+    if (sx === tx && sy === ty) return true;
+    const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+    const queue = [[sx, sy]];
+    visited[sy][sx] = true;
+    while (queue.length) {
+      const [x, y] = queue.shift();
+      for (const [dx, dy] of [[0,-1],[1,0],[0,1],[-1,0]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+        if (visited[ny][nx]) continue;
+        if (grid[ny][nx] === 1) continue;
+        if (nx === tx && ny === ty) return true;
+        visited[ny][nx] = true;
+        queue.push([nx, ny]);
+      }
+    }
+    return false;
+  }
+
+  let state = {
+    mode: "menu",
+    gameMode: "adventure",
+    practiceTier: 1,
+    maze: null,
+    portal: { x: 13, y: 9 },
+    player: { x: 1, y: 1, facing: 1 },
+    monsters: [],
+    boss: null,
+    questionQueue1: [],
+    questionQueue2: [],
+    questionQueue3: [],
+    bossQueue: [],
+    currentQuestion: null,
+    currentMonster: null,
+    selectedChoice: null,
+    showFeedback: false,
+    lives: 3,
+    questionsAnswered: 0,
+    correctAnswers: 0,
+    monstersDefeated: 0,
+    streak: 0,
+    bestStreak: 0,
+    difficultyTier: 1,
+    startTime: null,
+    elapsedTime: 0,
+    timerInterval: null,
+    monsterMoveInterval: null,
+    animInterval: null,
+    tick: 0
+  };
+
+  const root = document.getElementById("screen");
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function openCells(grid) {
+    const cells = [];
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      if (grid[y][x] === 0) cells.push({x, y});
+    }
+    return cells;
+  }
+
+  function canMove(x, y) {
+    if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return false;
+    return state.maze[y][x] !== 1;
+  }
+
+  function initMonsters() {
+    const open = openCells(state.maze).filter(c => state.maze[c.y][c.x] === 0);
+    const validSpots = open.filter(c => {
+      const dist = Math.abs(c.x - 1) + Math.abs(c.y - 1);
+      return dist > 4 && !(c.x === state.portal.x && c.y === state.portal.y);
+    });
+    const count = state.gameMode === "practice" ? 8 : 6;
+    const spots = shuffle(validSpots).slice(0, count);
+    return spots.map((s, i) => ({
+      x: s.x, y: s.y, id: i,
+      dir: Math.floor(Math.random() * 4),
+      bouncePhase: Math.random() * Math.PI * 2,
+      isBoss: false
+    }));
+  }
+
+  function initBoss() {
+    const px = state.portal.x;
+    const py = state.portal.y;
+    // Try each tile adjacent to the portal first
+    const candidates = [[px-1, py], [px, py-1], [px+1, py], [px, py+1]];
+    for (const [bx, by] of candidates) {
+      if (bx >= 0 && bx < COLS && by >= 0 && by < ROWS
+          && state.maze[by][bx] === 0
+          && isReachable(state.maze, 1, 1, bx, by)) {
+        return { x: bx, y: by, id: 999, dir: 0, bouncePhase: 0, isBoss: true, stationary: true };
+      }
+    }
+    // Widen search outward until we find a reachable open tile near the portal
+    for (let r = 1; r < Math.max(COLS, ROWS); r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; // ring only
+          const bx = px + dx, by = py + dy;
+          if (bx >= 0 && bx < COLS && by >= 0 && by < ROWS
+              && state.maze[by][bx] === 0
+              && !(bx === 1 && by === 1)
+              && isReachable(state.maze, 1, 1, bx, by)) {
+            return { x: bx, y: by, id: 999, dir: 0, bouncePhase: 0, isBoss: true, stationary: true };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  function startGame(mode, practiceTier) {
+    state.gameMode = mode || "adventure";
+    state.practiceTier = practiceTier || 1;
+
+    // Generate a maze that satisfies all requirements:
+    // - portal is reachable from (1,1)
+    // - in adventure mode, a valid boss spawn exists adjacent to the portal AND is reachable
+    let grid, portalX, portalY, bossCandidate;
+    let attempts = 0;
+    do {
+      const m = generateMaze();
+      grid = m.grid; portalX = m.portalX; portalY = m.portalY;
+      // Temporarily set state.maze so initBoss can use it
+      state.maze = grid;
+      state.portal = { x: portalX, y: portalY };
+      const portalReachable = isReachable(grid, 1, 1, portalX, portalY);
+      if (!portalReachable) { attempts++; continue; }
+      if (state.gameMode === "adventure") {
+        bossCandidate = initBoss();
+        if (!bossCandidate) { attempts++; continue; }
+      }
+      break;
+    } while (attempts < 50);
+
+    state.maze = grid;
+    state.portal = { x: portalX, y: portalY };
+    state.player = { x: 1, y: 1, facing: 1 };
+    state.monsters = initMonsters();
+    state.boss = null;
+    if (state.gameMode === "adventure") {
+      state.boss = bossCandidate || initBoss();
+      if (state.boss) state.monsters.push(state.boss);
+    }
+    state.questionQueue1 = shuffle(QUESTIONS.filter(q => q.d === 1));
+    state.questionQueue2 = shuffle(QUESTIONS.filter(q => q.d === 2));
+    state.questionQueue3 = shuffle(QUESTIONS.filter(q => q.d === 3));
+    state.bossQueue = shuffle(QUESTIONS.filter(q => q.d === 4));
+    state.lives = state.gameMode === "practice" ? Infinity : 3;
+    state.questionsAnswered = 0;
+    state.correctAnswers = 0;
+    state.monstersDefeated = 0;
+    state.bossSkipped = false;
+    state.streak = 0;
+    state.bestStreak = 0;
+    state.difficultyTier = state.gameMode === "practice" ? state.practiceTier : 1;
+    state.startTime = Date.now();
+    state.elapsedTime = 0;
+    state.tick = 0;
+    state.mode = "playing";
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    if (state.monsterMoveInterval) clearInterval(state.monsterMoveInterval);
+    if (state.animInterval) clearInterval(state.animInterval);
+    state.timerInterval = setInterval(() => {
+      state.elapsedTime = Math.floor((Date.now() - state.startTime) / 1000);
+      updateHUD();
+    }, 500);
+    state.monsterMoveInterval = setInterval(moveMonsters, 650);
+    state.animInterval = setInterval(() => {
+      state.tick++;
+      if (state.mode === "playing") drawMaze();
+    }, 80);
+    render();
+  }
+
+  function respawnSlimesIfNeeded() {
+    if (state.gameMode === "practice" && state.monsters.length === 0) {
+      state.monsters = initMonsters();
+    }
+  }
+
+  function getSlimeColor(monster) {
+    if (monster.isBoss) return TIER_COLORS[4];
+    return TIER_COLORS[state.difficultyTier];
+  }
+
+  function movePlayer(dx, dy) {
+    if (state.mode !== "playing") return;
+    if (dx < 0) state.player.facing = -1;
+    if (dx > 0) state.player.facing = 1;
+    const nx = state.player.x + dx;
+    const ny = state.player.y + dy;
+    if (!canMove(nx, ny)) return;
+
+    // Show portal-choice dialog while boss is alive (adventure mode only)
+    if (state.gameMode === "adventure" && state.boss && state.maze[ny] && state.maze[ny][nx] === 2) {
+      showPortalChoice();
+      return;
+    }
+
+    state.player.x = nx;
+    state.player.y = ny;
+    drawMaze();
+    checkCollisions();
+    if (state.maze[ny] && state.maze[ny][nx] === 2 && state.mode === "playing") {
+      if (state.gameMode === "practice") regenerateMazeForPractice();
+      else victory();
+    }
+  }
+
+  function showPortalChoice() {
+    state.mode = "portal_choice";
+    if (state.monsterMoveInterval) clearInterval(state.monsterMoveInterval);
+    render();
+  }
+
+  function chooseFightBoss() {
+    state.mode = "playing";
+    state.monsterMoveInterval = setInterval(moveMonsters, 650);
+    render();
+  }
+
+  function chooseSkipBoss() {
+    // Pay 1 life to bypass the boss
+    state.lives -= 1;
+    if (state.lives <= 0) { defeat(); return; }
+    // Remove the boss from the maze
+    state.monsters = state.monsters.filter(m => !m.isBoss);
+    state.boss = null;
+    // Trigger victory with a flag so the result screen reflects the skip
+    state.bossSkipped = true;
+    victory();
+  }
+
+  function regenerateMazeForPractice() {
+    let grid, portalX, portalY;
+    let attempts = 0;
+    do {
+      const m = generateMaze();
+      grid = m.grid; portalX = m.portalX; portalY = m.portalY;
+      if (isReachable(grid, 1, 1, portalX, portalY)) break;
+      attempts++;
+    } while (attempts < 50);
+    state.maze = grid;
+    state.portal = { x: portalX, y: portalY };
+    state.player = { x: 1, y: 1, facing: 1 };
+    state.monsters = initMonsters();
+    drawMaze();
+  }
+
+  function moveMonsters() {
+    if (state.mode !== "playing") return;
+    const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+    state.monsters.forEach(m => {
+      if (m.stationary) return;
+      if (Math.random() < 0.3) m.dir = Math.floor(Math.random() * 4);
+      const [dx, dy] = dirs[m.dir];
+      const nx = m.x + dx;
+      const ny = m.y + dy;
+      if (canMove(nx, ny)) { m.x = nx; m.y = ny; }
+      else m.dir = Math.floor(Math.random() * 4);
+    });
+    drawMaze();
+    checkCollisions();
+  }
+
+  function checkCollisions() {
+    if (state.mode !== "playing") return;
+    const hit = state.monsters.find(m => m.x === state.player.x && m.y === state.player.y);
+    if (hit) startCombat(hit);
+  }
+
+  function pickQuestion(isBoss) {
+    if (isBoss || (state.gameMode === "practice" && state.practiceTier === 4)) {
+      if (!state.bossQueue.length) state.bossQueue = shuffle(QUESTIONS.filter(q => q.d === 4));
+      return state.bossQueue.shift();
+    }
+    let pool;
+    if (state.difficultyTier === 1) pool = "questionQueue1";
+    else if (state.difficultyTier === 2) pool = "questionQueue2";
+    else pool = "questionQueue3";
+    if (!state[pool].length) {
+      const d = state.difficultyTier;
+      state[pool] = shuffle(QUESTIONS.filter(q => q.d === d));
+    }
+    return state[pool].shift();
+  }
+
+  function shuffleQuestionChoices(q) {
+    // Pair each choice with its original index, shuffle, then rebuild
+    const paired = q.choices.map((c, i) => ({ choice: c, wasCorrect: i === q.answer }));
+    const shuffled = shuffle(paired);
+    return {
+      bi: q.bi,
+      d: q.d,
+      q: q.q,
+      choices: shuffled.map(p => p.choice),
+      answer: shuffled.findIndex(p => p.wasCorrect),
+      exp: q.exp
+    };
+  }
+
+  function startCombat(monster) {
+    state.mode = "combat";
+    state.currentMonster = monster;
+    state.currentQuestion = shuffleQuestionChoices(pickQuestion(monster.isBoss));
+    state.selectedChoice = null;
+    state.showFeedback = false;
+    if (state.monsterMoveInterval) clearInterval(state.monsterMoveInterval);
+    render();
+  }
+
+  function submitAnswer(idx) {
+    if (state.showFeedback) return;
+    state.selectedChoice = idx;
+    state.showFeedback = true;
+    state.questionsAnswered++;
+    const correct = idx === state.currentQuestion.answer;
+    const isBoss = state.currentMonster.isBoss;
+    if (correct) {
+      state.correctAnswers++;
+      state.monstersDefeated++;
+      state.streak++;
+      if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+      if (state.gameMode === "adventure") {
+        if (state.streak >= 5) state.difficultyTier = 3;
+        else if (state.streak >= 2) state.difficultyTier = 2;
+      }
+    } else {
+      if (state.gameMode === "adventure") {
+        state.lives -= isBoss ? 2 : 1;
+        if (state.difficultyTier > 1) state.difficultyTier = Math.max(1, state.difficultyTier - 1);
+      }
+      state.streak = 0;
+    }
+    renderCombat();
+  }
+
+  function resumeGame() {
+    if (state.gameMode === "adventure" && state.lives <= 0) { defeat(); return; }
+    const correct = state.selectedChoice === state.currentQuestion.answer;
+    if (correct) {
+      state.monsters = state.monsters.filter(m => m.id !== state.currentMonster.id);
+      if (state.currentMonster.isBoss) state.boss = null;
+      respawnSlimesIfNeeded();
+    } else {
+      const dirs = [[0,-1],[1,0],[0,1],[-1,0]];
+      for (const [dx, dy] of shuffle(dirs)) {
+        const nx = state.player.x + dx;
+        const ny = state.player.y + dy;
+        if (canMove(nx, ny) && !state.monsters.find(m => m.x === nx && m.y === ny)) {
+          state.player.x = nx;
+          state.player.y = ny;
+          break;
+        }
+      }
+    }
+    state.mode = "playing";
+    state.currentQuestion = null;
+    state.currentMonster = null;
+    state.monsterMoveInterval = setInterval(moveMonsters, 650);
+    render();
+  }
+
+  function exitPractice() {
+    state.mode = "practice_summary";
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    if (state.monsterMoveInterval) clearInterval(state.monsterMoveInterval);
+    if (state.animInterval) clearInterval(state.animInterval);
+    render();
+  }
+
+  function victory() {
+    state.mode = "victory";
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    if (state.monsterMoveInterval) clearInterval(state.monsterMoveInterval);
+    if (state.animInterval) clearInterval(state.animInterval);
+    render();
+  }
+  function defeat() {
+    state.mode = "defeat";
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    if (state.monsterMoveInterval) clearInterval(state.monsterMoveInterval);
+    if (state.animInterval) clearInterval(state.animInterval);
+    render();
+  }
+
+  function updateHUD() {
+    const hud = document.getElementById("hud");
+    if (!hud) return;
+    const mins = Math.floor(state.elapsedTime / 60);
+    const secs = state.elapsedTime % 60;
+    const timeStr = mins + ":" + (secs < 10 ? "0" : "") + secs;
+    const tierColors = {1: "#5DCAA5", 2: "#85B7EB", 3: "#F0997B", 4: "#E24B4A"};
+    const isPractice = state.gameMode === "practice";
+
+    if (isPractice) {
+      const acc = state.questionsAnswered > 0 ? Math.round((state.correctAnswers / state.questionsAnswered) * 100) : 0;
+      hud.innerHTML = `
+        <div class="hud-pill" style="background: #5E4E1E; color: #FFE082;"><strong>Practice mode</strong></div>
+        <div class="hud-pill"><span style="opacity:0.7;">Tier</span> <strong style="color:${tierColors[state.difficultyTier]};">${TIER_LABELS[state.difficultyTier]}</strong></div>
+        <div class="hud-pill"><span style="opacity:0.7;">Correct</span> <strong>${state.correctAnswers}/${state.questionsAnswered}${state.questionsAnswered ? ' (' + acc + '%)' : ''}</strong></div>
+        <div class="hud-pill"><span style="opacity:0.7;">Streak</span> <strong>${state.streak > 0 ? '🔥' : ''}${state.streak}</strong></div>
+        <div class="hud-pill"><span style="opacity:0.7;">Time</span> <strong>${timeStr}</strong></div>
+        <button id="exit-practice" style="padding: 6px 14px; font-size: 13px;">End session</button>
+      `;
+      const ep = document.getElementById("exit-practice");
+      if (ep) ep.addEventListener("click", exitPractice);
+    } else {
+      const slimesLeft = state.monsters.filter(m => !m.isBoss).length;
+      hud.innerHTML = `
+        <div class="hud-pill"><span style="opacity:0.7;">Lives</span> <strong>${"❤️".repeat(state.lives)}${"🖤".repeat(Math.max(0, 3 - state.lives))}</strong></div>
+        <div class="hud-pill"><span style="opacity:0.7;">Slimes</span> <strong>${slimesLeft}${state.boss ? ' +👑' : ''}</strong></div>
+        <div class="hud-pill"><span style="opacity:0.7;">Difficulty</span> <strong style="color:${tierColors[state.difficultyTier]};">${TIER_LABELS[state.difficultyTier]}</strong></div>
+        <div class="hud-pill"><span style="opacity:0.7;">Streak</span> <strong>${state.streak > 0 ? '🔥' : ''}${state.streak}</strong></div>
+        <div class="hud-pill"><span style="opacity:0.7;">Time</span> <strong>${timeStr}</strong></div>
+      `;
+    }
+  }
+
+  // ===== MINECRAFT-THEMED SPRITES =====
+
+  // Cobblestone floor — mimics Minecraft cobblestone block top-down view
+  function drawFloor(ctx, px, py) {
+    // Base gray
+    ctx.fillStyle = "#7c7c7c";
+    ctx.fillRect(px, py, CELL, CELL);
+    // Darker patches (cobblestone has irregular dark spots)
+    const seed = ((px * 31) ^ (py * 17)) & 0xff;
+    ctx.fillStyle = "#5e5e5e";
+    ctx.fillRect(px + (seed % 12) + 2, py + ((seed * 3) % 12) + 2, 8, 6);
+    ctx.fillRect(px + 22 + (seed % 10), py + 24 + ((seed * 5) % 10), 8, 7);
+    ctx.fillStyle = "#6a6a6a";
+    ctx.fillRect(px + 4, py + 24, 6, 8);
+    ctx.fillRect(px + 24, py + 6, 10, 6);
+    // Light specks
+    ctx.fillStyle = "#909090";
+    ctx.fillRect(px + 14 + (seed % 6), py + 12, 4, 3);
+    ctx.fillRect(px + 6, py + 38, 4, 3);
+    // Pixel border (subtle dark)
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(px, py, CELL, 2);
+    ctx.fillRect(px, py, 2, CELL);
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.fillRect(px, py + CELL - 1, CELL, 1);
+    ctx.fillRect(px + CELL - 1, py, 1, CELL);
+  }
+
+  // Stone brick wall — Minecraft's stone bricks pattern
+  function drawWall(ctx, px, py) {
+    // Base stone color
+    ctx.fillStyle = "#6e6e6e";
+    ctx.fillRect(px, py, CELL, CELL);
+
+    // Brick pattern — top row of bricks
+    const brickH = CELL / 2;
+    // Top half: two bricks
+    ctx.fillStyle = "#5a5a5a";
+    ctx.fillRect(px + 2, py + 2, CELL - 4, brickH - 4);
+    ctx.fillStyle = "#7a7a7a";
+    ctx.fillRect(px + 2, py + 2, CELL - 4, 2); // top highlight
+    // Vertical groove in middle
+    ctx.fillStyle = "#3a3a3a";
+    ctx.fillRect(px + CELL/2 - 1, py + 2, 2, brickH - 4);
+
+    // Bottom half: offset brick
+    ctx.fillStyle = "#5a5a5a";
+    ctx.fillRect(px + 2, py + brickH + 2, CELL - 4, brickH - 4);
+    ctx.fillStyle = "#7a7a7a";
+    ctx.fillRect(px + 2, py + brickH + 2, CELL - 4, 2);
+
+    // Horizontal groove
+    ctx.fillStyle = "#3a3a3a";
+    ctx.fillRect(px + 2, py + brickH - 1, CELL - 4, 2);
+
+    // Texture pixels
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillRect(px + 10, py + 8, 3, 2);
+    ctx.fillRect(px + 28, py + 12, 2, 2);
+    ctx.fillRect(px + 8, py + 30, 2, 3);
+    ctx.fillRect(px + 30, py + 32, 3, 2);
+
+    ctx.fillStyle = "rgba(255,255,255,0.1)";
+    ctx.fillRect(px + 14, py + 6, 2, 2);
+    ctx.fillRect(px + 24, py + 28, 2, 2);
+  }
+
+  // End portal — black with stars and purple particles, like Minecraft's end portal
+  function drawPortal(ctx, px, py, tick) {
+    // Floor underneath
+    drawFloor(ctx, px, py);
+    // Black portal base
+    ctx.fillStyle = "#0a0118";
+    ctx.fillRect(px + 4, py + 4, CELL - 8, CELL - 8);
+    // Frame (gold-ish end portal frame)
+    ctx.fillStyle = "#7a6b3a";
+    ctx.fillRect(px + 2, py + 2, CELL - 4, 3);
+    ctx.fillRect(px + 2, py + CELL - 5, CELL - 4, 3);
+    ctx.fillRect(px + 2, py + 2, 3, CELL - 4);
+    ctx.fillRect(px + CELL - 5, py + 2, 3, CELL - 4);
+    // Eyes of ender on the frame
+    ctx.fillStyle = "#a09040";
+    ctx.fillRect(px + CELL/2 - 2, py + 2, 4, 3);
+    ctx.fillRect(px + CELL/2 - 2, py + CELL - 5, 4, 3);
+    ctx.fillRect(px + 2, py + CELL/2 - 2, 3, 4);
+    ctx.fillRect(px + CELL - 5, py + CELL/2 - 2, 3, 4);
+
+    // Animated star field inside portal
+    ctx.fillStyle = "#a070ff";
+    for (let i = 0; i < 6; i++) {
+      const angle = tick * 0.05 + i * Math.PI / 3;
+      const r = 3 + (i % 3) * 3;
+      const sx = px + CELL/2 + Math.cos(angle + i) * r;
+      const sy = py + CELL/2 + Math.sin(angle * 1.3 + i) * r;
+      ctx.fillRect(Math.floor(sx), Math.floor(sy), 2, 2);
+    }
+    // Bright center stars
+    ctx.fillStyle = "#e0c0ff";
+    const cx = px + CELL/2 + Math.sin(tick * 0.1) * 2;
+    const cy = py + CELL/2 + Math.cos(tick * 0.13) * 2;
+    ctx.fillRect(Math.floor(cx) - 1, Math.floor(cy), 2, 1);
+    ctx.fillRect(Math.floor(cx), Math.floor(cy) - 1, 1, 2);
+    // White twinkles
+    ctx.fillStyle = "#ffffff";
+    const t1x = px + 12 + (tick % 20) / 4;
+    const t1y = py + 16;
+    ctx.fillRect(Math.floor(t1x), t1y, 1, 1);
+    const t2x = px + 26;
+    const t2y = py + 28 - (tick % 15) / 4;
+    ctx.fillRect(t2x, Math.floor(t2y), 1, 1);
+  }
+
+  // Minecraft-style slime block — translucent cube look with darker green core
+  function drawSlime(ctx, px, py, monster, tick, colorOverride) {
+    const color = colorOverride || getSlimeColor(monster);
+    const isBoss = monster.isBoss;
+    const phase = tick * 0.12 + monster.bouncePhase;
+    const bounce = Math.sin(phase) * 1.5;
+
+    const padding = isBoss ? 3 : 5;
+    const x = px + padding;
+    const y = py + padding + bounce;
+    const size = CELL - padding * 2;
+
+    // Shadow on floor
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillRect(px + padding + 2, py + CELL - 4, size - 4, 2);
+
+    // Boss aura
+    if (isBoss) {
+      const auraPulse = Math.sin(tick * 0.15) * 1 + 2;
+      ctx.fillStyle = "rgba(163, 45, 45, 0.3)";
+      ctx.fillRect(x - auraPulse, y - auraPulse, size + auraPulse*2, size + auraPulse*2);
+    }
+
+    // === Slime block cube ===
+    // Outer translucent body
+    ctx.fillStyle = color.body;
+    ctx.fillRect(x, y, size, size);
+
+    // Top edge highlight (lighter)
+    ctx.fillStyle = color.light;
+    ctx.fillRect(x, y, size, 3);
+    ctx.fillRect(x, y, 3, size);
+
+    // Bottom + right edges darker
+    ctx.fillStyle = color.dark;
+    ctx.fillRect(x, y + size - 3, size, 3);
+    ctx.fillRect(x + size - 3, y, 3, size);
+
+    // Inner core (darker green/blue blob inside, like a smaller slime in the block)
+    const coreSize = Math.floor(size * 0.45);
+    const coreX = x + Math.floor((size - coreSize) / 2);
+    const coreY = y + Math.floor((size - coreSize) / 2);
+    ctx.fillStyle = color.core;
+    ctx.fillRect(coreX, coreY, coreSize, coreSize);
+
+    // Core highlight
+    ctx.fillStyle = color.dark;
+    ctx.fillRect(coreX, coreY, coreSize, 2);
+    ctx.fillRect(coreX, coreY, 2, coreSize);
+
+    // === Slime face (on the core) ===
+    // Eyes — Minecraft slimes have two black square eyes
+    const eyeSize = isBoss ? 3 : 2;
+    const eyeY = coreY + Math.floor(coreSize * 0.3);
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(coreX + Math.floor(coreSize * 0.2), eyeY, eyeSize, eyeSize);
+    ctx.fillRect(coreX + coreSize - Math.floor(coreSize * 0.2) - eyeSize, eyeY, eyeSize, eyeSize);
+
+    // Mouth — small frown line
+    const mouthY = coreY + Math.floor(coreSize * 0.7);
+    if (isBoss) {
+      // Boss has wider angry mouth
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(coreX + Math.floor(coreSize * 0.25), mouthY, Math.floor(coreSize * 0.5), 1);
+      ctx.fillRect(coreX + Math.floor(coreSize * 0.25), mouthY - 1, 1, 1);
+      ctx.fillRect(coreX + Math.floor(coreSize * 0.75) - 1, mouthY - 1, 1, 1);
+    } else {
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(coreX + Math.floor(coreSize * 0.35), mouthY, Math.floor(coreSize * 0.3), 1);
+    }
+
+    // === Boss crown ===
+    if (isBoss) {
+      const crownY = y - 3;
+      const crownX = x + Math.floor(size * 0.25);
+      const crownW = Math.floor(size * 0.5);
+      ctx.fillStyle = "#EF9F27";
+      ctx.fillRect(crownX, crownY + 2, crownW, 2);
+      ctx.fillRect(crownX, crownY, 2, 4);
+      ctx.fillRect(crownX + Math.floor(crownW/2) - 1, crownY - 2, 2, 6);
+      ctx.fillRect(crownX + crownW - 2, crownY, 2, 4);
+      ctx.fillStyle = "#E24B4A";
+      ctx.fillRect(crownX + Math.floor(crownW/2) - 1, crownY, 2, 2);
+    }
+
+    // Specular highlight on slime block face (top-left small bright square)
+    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillRect(x + 4, y + 4, 3, 3);
+  }
+
+  // Steve from Minecraft — blocky pixelated figure
+  function drawSteve(ctx, px, py, player, tick) {
+    const cx = px + CELL/2;
+    const cy = py + CELL/2;
+    const facing = player.facing;
+    const walkPhase = Math.sin(tick * 0.2) * 1.5;
+
+    // Shadow
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillRect(cx - 8, py + CELL - 4, 16, 2);
+
+    // === Body proportions (Steve is blocky) ===
+    // Head: 10x10 px
+    // Body: 8x12 px
+    // Arms: 4x12 px each
+    // Legs: 4x12 px each
+
+    // === LEGS (denim pants) ===
+    const legY = cy + 2;
+    // Left leg
+    ctx.fillStyle = "#3F5077"; // denim blue
+    ctx.fillRect(cx - 4, legY, 4, 8 + walkPhase);
+    ctx.fillStyle = "#2F3F60"; // darker denim
+    ctx.fillRect(cx - 4, legY, 1, 8 + walkPhase);
+    // Right leg
+    ctx.fillStyle = "#3F5077";
+    ctx.fillRect(cx, legY, 4, 8 - walkPhase);
+    ctx.fillStyle = "#2F3F60";
+    ctx.fillRect(cx + 3, legY, 1, 8 - walkPhase);
+
+    // === BODY (cyan/teal shirt) ===
+    ctx.fillStyle = "#00AFAF"; // Steve's classic teal shirt
+    ctx.fillRect(cx - 4, cy - 5, 8, 8);
+    // Shirt shading
+    ctx.fillStyle = "#008888";
+    ctx.fillRect(cx + 3, cy - 5, 1, 8);
+    ctx.fillRect(cx - 4, cy + 2, 8, 1);
+    // Shirt highlight
+    ctx.fillStyle = "#33CCCC";
+    ctx.fillRect(cx - 4, cy - 5, 1, 8);
+
+    // === ARMS ===
+    // Back arm (further from camera based on facing)
+    ctx.fillStyle = "#008888"; // shaded arm
+    if (facing === 1) {
+      ctx.fillRect(cx + 4, cy - 5, 2, 8); // right side arm
+    } else {
+      ctx.fillRect(cx - 6, cy - 5, 2, 8); // left side arm
+    }
+    // Front arm
+    ctx.fillStyle = "#00AFAF";
+    if (facing === 1) {
+      ctx.fillRect(cx - 6, cy - 5, 2, 8);
+    } else {
+      ctx.fillRect(cx + 4, cy - 5, 2, 8);
+    }
+    // Hands (skin tone)
+    ctx.fillStyle = "#D9A37A";
+    ctx.fillRect(cx + 4, cy + 3, 2, 2);
+    ctx.fillRect(cx - 6, cy + 3, 2, 2);
+
+    // === HEAD (skin tone with face) ===
+    const headX = cx - 5;
+    const headY = cy - 13;
+    // Skin base
+    ctx.fillStyle = "#D9A37A";
+    ctx.fillRect(headX, headY, 10, 8);
+    // Skin shading
+    ctx.fillStyle = "#B58360";
+    ctx.fillRect(headX + 9, headY, 1, 8);
+    ctx.fillRect(headX, headY + 7, 10, 1);
+
+    // === HAIR (brown, covers top and back) ===
+    ctx.fillStyle = "#4A2A0A"; // dark brown hair
+    ctx.fillRect(headX, headY, 10, 3); // top
+    // Sideburns / hair sides
+    ctx.fillRect(headX, headY + 3, 1, 2);
+    ctx.fillRect(headX + 9, headY + 3, 1, 2);
+    // Hair texture pixels
+    ctx.fillStyle = "#5C3410";
+    ctx.fillRect(headX + 2, headY + 1, 1, 1);
+    ctx.fillRect(headX + 5, headY, 1, 1);
+    ctx.fillRect(headX + 7, headY + 1, 1, 1);
+
+    // === FACE ===
+    // Eyes — white sclera with blue/purple pupils
+    if (facing === 1) {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(headX + 2, headY + 3, 2, 2);
+      ctx.fillRect(headX + 6, headY + 3, 2, 2);
+      // Pupils (Steve's iconic look)
+      ctx.fillStyle = "#5C3410";
+      ctx.fillRect(headX + 3, headY + 3, 1, 2);
+      ctx.fillRect(headX + 7, headY + 3, 1, 2);
+      // Blue iris (Steve's eye color)
+      ctx.fillStyle = "#5070A0";
+      ctx.fillRect(headX + 3, headY + 4, 1, 1);
+      ctx.fillRect(headX + 7, headY + 4, 1, 1);
+    } else {
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(headX + 2, headY + 3, 2, 2);
+      ctx.fillRect(headX + 6, headY + 3, 2, 2);
+      ctx.fillStyle = "#5C3410";
+      ctx.fillRect(headX + 2, headY + 3, 1, 2);
+      ctx.fillRect(headX + 6, headY + 3, 1, 2);
+      ctx.fillStyle = "#5070A0";
+      ctx.fillRect(headX + 2, headY + 4, 1, 1);
+      ctx.fillRect(headX + 6, headY + 4, 1, 1);
+    }
+
+    // Mustache/mouth (Steve's signature)
+    ctx.fillStyle = "#4A2A0A";
+    ctx.fillRect(headX + 3, headY + 6, 4, 1);
+
+    // Nose (subtle shadow)
+    ctx.fillStyle = "#B58360";
+    ctx.fillRect(headX + 4, headY + 5, 2, 1);
+  }
+
+  function drawMaze() {
+    const canvas = document.getElementById("maze-canvas");
+    if (!canvas || !state.maze) return;
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#1a1428";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    for (let y = 0; y < ROWS; y++) {
+      for (let x = 0; x < COLS; x++) {
+        const px = x * CELL;
+        const py = y * CELL;
+        const cell = state.maze[y][x];
+        if (cell === 1) drawWall(ctx, px, py);
+        else if (cell === 2) drawPortal(ctx, px, py, state.tick);
+        else drawFloor(ctx, px, py);
+      }
+    }
+    state.monsters.filter(m => !m.isBoss).forEach(m => {
+      drawSlime(ctx, m.x * CELL, m.y * CELL, m, state.tick);
+    });
+    state.monsters.filter(m => m.isBoss).forEach(m => {
+      drawSlime(ctx, m.x * CELL, m.y * CELL, m, state.tick);
+    });
+    drawSteve(ctx, state.player.x * CELL, state.player.y * CELL, state.player, state.tick);
+  }
+
+  // ===== RENDER =====
+
+  function injectStyles() {
+    if (document.getElementById("game-styles")) return;
+    const s = document.createElement("style");
+    s.id = "game-styles";
+    s.textContent = `
+      .hud-pill {
+        background: #3d3658;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        border: 1px solid #5a5474;
+      }
+      .choice-btn {
+        text-align: left;
+        padding: 12px 14px;
+        background: #3d3658;
+        border: 2px solid #5a5474;
+        color: #f5f3eb;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1.5;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        font-family: inherit;
+        transition: all 0.15s;
+      }
+      .choice-btn:hover:not(:disabled) {
+        background: #4d4670;
+        border-color: #7a7494;
+      }
+      .choice-btn.correct {
+        background: #2a4f1a !important;
+        border-color: #6fae3e !important;
+        color: #c8f0a0 !important;
+      }
+      .choice-btn.wrong {
+        background: #5a1818 !important;
+        border-color: #c04040 !important;
+        color: #f0c8c8 !important;
+      }
+      .choice-btn:disabled { cursor: default; }
+      .panel {
+        background: #3d3658;
+        padding: 16px;
+        border-radius: 10px;
+        border: 1px solid #5a5474;
+        margin-bottom: 12px;
+      }
+      .dpad {
+        width: 56px;
+        height: 48px;
+        font-size: 20px;
+        padding: 0;
+      }
+      .mode-card {
+        background: #3d3658;
+        border: 2px solid #5a5474;
+        border-radius: 10px;
+        padding: 16px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        transition: all 0.15s;
+      }
+      .mode-card:hover { border-color: #8a84a4; transform: translateY(-2px); }
+      .mode-card.featured { border-color: #5070A0; }
+      .tier-btn {
+        text-align: left;
+        background: #3d3658;
+        border: 2px solid #5a5474;
+        color: #f5f3eb;
+        font-family: inherit;
+        cursor: pointer;
+        padding: 12px 14px;
+        border-radius: 8px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        transition: all 0.15s;
+      }
+      .tier-btn:hover { background: #4d4670; transform: translateY(-1px); }
+    `;
+    document.head.appendChild(s);
+  }
+  injectStyles();
+
+  function render() {
+    if (state.mode === "menu") return renderMenu();
+    if (state.mode === "practice_menu") return renderPracticeMenu();
+    if (state.mode === "playing") return renderPlaying();
+    if (state.mode === "combat") return renderCombat();
+    if (state.mode === "portal_choice") return renderPortalChoice();
+    if (state.mode === "victory") return renderVictory();
+    if (state.mode === "defeat") return renderDefeat();
+    if (state.mode === "practice_summary") return renderPracticeSummary();
+  }
+
+  function renderPortalChoice() {
+    const livesAfterSkip = state.lives - 1;
+    const skipKillsRun = livesAfterSkip <= 0;
+    root.innerHTML = `
+      <div style="background: linear-gradient(180deg, #2a2540 0%, #3d3658 100%); border-radius: 10px; padding: 24px 16px; margin-bottom: 16px; text-align: center;">
+        <canvas id="portal-choice-canvas" width="280" height="120" style="image-rendering: pixelated; margin-bottom: 12px;"></canvas>
+        <h1 style="font-size: 22px; margin: 0 0 6px; color: #FFFFFF;">The portal hums before you...</h1>
+        <p style="font-size: 13px; color: #ccc; margin: 0;">The boss slime still guards this place. What will you do?</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div class="mode-card featured" id="fight-boss-card" style="border-color: #E24B4A;">
+          <div class="badge" style="background: #501313; color: #ffc8c8; align-self: flex-start; margin-bottom: 8px;">Recommended</div>
+          <div style="font-size: 16px; font-weight: 500; margin-bottom: 6px;">⚔️ Fight the boss</div>
+          <div style="font-size: 12px; color: #a0a0c0; line-height: 1.6; flex: 1;">Find and defeat the boss slime to unlock the portal. Tougher question, but no life lost if you answer right.</div>
+          <button style="margin-top: 10px; font-weight: 500;">Back to the maze →</button>
+        </div>
+        <div class="mode-card" id="skip-boss-card" style="border-color: ${skipKillsRun ? '#5a5474' : '#EF9F27'}; ${skipKillsRun ? 'opacity: 0.5;' : ''}">
+          <div class="badge" style="background: #5E4E1E; color: #FFE082; align-self: flex-start; margin-bottom: 8px;">Costs 1 ❤️</div>
+          <div style="font-size: 16px; font-weight: 500; margin-bottom: 6px;">🏃 Sneak past</div>
+          <div style="font-size: 12px; color: #a0a0c0; line-height: 1.6; flex: 1;">
+            ${skipKillsRun
+              ? "You only have 1 ❤️ — sneaking past would end your run."
+              : `Pay 1 ❤️ to slip into the portal and escape. You'll have ${"❤️".repeat(livesAfterSkip)} remaining on the result screen.`}
+          </div>
+          <button style="margin-top: 10px;" ${skipKillsRun ? "disabled" : ""}>${skipKillsRun ? "Not enough lives" : "Sneak past →"}</button>
+        </div>
+      </div>
+
+      <div style="text-align: center; font-size: 12px; color: #a0a0c0;">
+        Lives: ${"❤️".repeat(state.lives)}${"🖤".repeat(Math.max(0, 3 - state.lives))}
+      </div>
+    `;
+    document.getElementById("fight-boss-card").addEventListener("click", chooseFightBoss);
+    if (!skipKillsRun) {
+      document.getElementById("skip-boss-card").addEventListener("click", chooseSkipBoss);
+    }
+
+    // Animate Steve approaching the portal with the boss looming
+    const canvas = document.getElementById("portal-choice-canvas");
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      let pt = 0;
+      const heroP = { facing: 1 };
+      const bossM = { bouncePhase: 0, isBoss: true };
+      function pcLoop() {
+        ctx.clearRect(0, 0, 280, 120);
+        ctx.fillStyle = "#1a1428";
+        ctx.fillRect(0, 0, 280, 120);
+        // Floor strip
+        for (let i = 0; i < 7; i++) drawFloor(ctx, i * CELL, 50);
+        // Steve on left
+        drawSteve(ctx, 30, 50, heroP, pt);
+        // Boss in middle
+        drawSlime(ctx, 120, 50, bossM, pt, TIER_COLORS[4]);
+        // Portal on right
+        drawPortal(ctx, 210, 50, pt);
+        pt++;
+        if (state.mode === "portal_choice") requestAnimationFrame(pcLoop);
+      }
+      pcLoop();
+    }
+  }
+
+  function renderMenu() {
+    root.innerHTML = `
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #a0a0c0; margin-bottom: 6px;">AP CSP Review</div>
+        <h1 style="font-size: 28px; margin: 0 0 6px;">⛏️ Escape the Slime Dungeon</h1>
+        <p style="font-size: 14px; color: #a0a0c0; margin: 0;">Steve vs. the slime blocks · choose your mode</p>
+      </div>
+
+      <div style="background: #1a1428; border-radius: 10px; padding: 12px; margin-bottom: 16px; display: flex; justify-content: center;">
+        <canvas id="preview-canvas" width="440" height="100" style="image-rendering: pixelated; max-width: 100%; height: auto;"></canvas>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div class="mode-card featured" id="adventure-card">
+          <div class="badge" style="background: #1f3f6a; color: #a0c0ff; align-self: flex-start; margin-bottom: 8px;">Full game</div>
+          <div style="font-size: 16px; font-weight: 500; margin-bottom: 6px;">⚔️ Adventure</div>
+          <div style="font-size: 12px; color: #a0a0c0; line-height: 1.6; flex: 1;">3 lives · boss at the portal · difficulty scales with your streak · escape to win</div>
+          <button style="margin-top: 10px; font-weight: 500;">Start adventure →</button>
+        </div>
+        <div class="mode-card" id="practice-card">
+          <div class="badge" style="background: #5E4E1E; color: #FFE082; align-self: flex-start; margin-bottom: 8px;">Drill mode</div>
+          <div style="font-size: 16px; font-weight: 500; margin-bottom: 6px;">🎯 Practice</div>
+          <div style="font-size: 12px; color: #a0a0c0; line-height: 1.6; flex: 1;">Pick a tier · unlimited lives · no boss · infinite questions · build accuracy</div>
+          <button style="margin-top: 10px; font-weight: 500;">Pick a tier →</button>
+        </div>
+      </div>
+
+      <div style="text-align: center; font-size: 12px; color: #a0a0c0;">
+        Controls: arrow keys / WASD on keyboard · D-pad on touch
+      </div>
+    `;
+    document.getElementById("adventure-card").addEventListener("click", () => startGame("adventure"));
+    document.getElementById("practice-card").addEventListener("click", () => { state.mode = "practice_menu"; render(); });
+
+    const previewCanvas = document.getElementById("preview-canvas");
+    if (previewCanvas) {
+      const ctx = previewCanvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      let pt = 0;
+      const greenSlime = { x: 0, y: 0, bouncePhase: 0, isBoss: false };
+      const blueSlime = { x: 0, y: 0, bouncePhase: 1.5, isBoss: false };
+      const orangeSlime = { x: 0, y: 0, bouncePhase: 3, isBoss: false };
+      const bossSlime = { x: 0, y: 0, bouncePhase: 0, isBoss: true };
+      const previewPlayer = { x: 0, y: 0, facing: 1 };
+      function previewLoop() {
+        ctx.clearRect(0, 0, 440, 100);
+        for (let i = 0; i < 11; i++) drawFloor(ctx, i * CELL, 30);
+        drawSteve(ctx, 20, 30, previewPlayer, pt);
+        drawSlime(ctx, 100, 30, greenSlime, pt, TIER_COLORS[1]);
+        drawSlime(ctx, 160, 30, blueSlime, pt, TIER_COLORS[2]);
+        drawSlime(ctx, 220, 30, orangeSlime, pt, TIER_COLORS[3]);
+        drawSlime(ctx, 290, 30, bossSlime, pt, TIER_COLORS[4]);
+        drawPortal(ctx, 380, 30, pt);
+        pt++;
+        if (state.mode === "menu") requestAnimationFrame(previewLoop);
+      }
+      previewLoop();
+    }
+  }
+
+  function renderPracticeMenu() {
+    const counts = {
+      1: QUESTIONS.filter(q => q.d === 1).length,
+      2: QUESTIONS.filter(q => q.d === 2).length,
+      3: QUESTIONS.filter(q => q.d === 3).length,
+      4: QUESTIONS.filter(q => q.d === 4).length
+    };
+    const tiers = [
+      { d: 1, label: "Easy", desc: "Definitions and core vocab across all 5 Big Ideas", color: TIER_COLORS[1] },
+      { d: 2, label: "Medium", desc: "Concept applications and real-world examples", color: TIER_COLORS[2] },
+      { d: 3, label: "Hard", desc: "Pseudocode tracing, undecidability, edge cases", color: TIER_COLORS[3] },
+      { d: 4, label: "Boss", desc: "Recursion, 1-indexed lists, bit math, full traces", color: TIER_COLORS[4] }
+    ];
+    root.innerHTML = `
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #a0a0c0; margin-bottom: 6px;">Practice mode</div>
+        <h1 style="font-size: 24px; margin: 0 0 6px;">Pick a tier to drill</h1>
+        <p style="font-size: 14px; color: #a0a0c0; margin: 0;">Unlimited lives · slimes respawn · end the session whenever you want</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 16px;">
+        ${tiers.map(t => `
+          <button class="tier-btn" data-tier="${t.d}" style="border-left: 4px solid ${t.color.body};">
+            <canvas class="tier-slime" data-tier="${t.d}" width="50" height="50" style="image-rendering: pixelated; flex-shrink: 0;"></canvas>
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span style="font-weight: 500; font-size: 15px;">${t.label} tier</span>
+                <span class="badge" style="background: ${t.color.body}33; color: ${t.color.light};">${counts[t.d]} questions</span>
+              </div>
+              <div style="font-size: 12px; color: #a0a0c0; line-height: 1.5;">${t.desc}</div>
+            </div>
+            <span style="font-size: 14px; color: #a0a0c0;">→</span>
+          </button>
+        `).join("")}
+      </div>
+
+      <div style="text-align: center;">
+        <button id="back-menu">← Back</button>
+      </div>
+    `;
+
+    let pt = 0;
+    function tierPreviewLoop() {
+      document.querySelectorAll(".tier-slime").forEach(canvas => {
+        const tier = parseInt(canvas.getAttribute("data-tier"));
+        const ctx = canvas.getContext("2d");
+        ctx.imageSmoothingEnabled = false;
+        ctx.clearRect(0, 0, 50, 50);
+        const slimeM = { x: 0, y: 0, bouncePhase: tier * 0.7, isBoss: tier === 4 };
+        ctx.save();
+        ctx.translate(50/2 - CELL/2, 50/2 - CELL/2);
+        drawSlime(ctx, 0, 0, slimeM, pt, TIER_COLORS[tier]);
+        ctx.restore();
+      });
+      pt++;
+      if (state.mode === "practice_menu") requestAnimationFrame(tierPreviewLoop);
+    }
+    tierPreviewLoop();
+
+    document.querySelectorAll(".tier-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tier = parseInt(btn.getAttribute("data-tier"));
+        startGame("practice", tier);
+      });
+    });
+    document.getElementById("back-menu").addEventListener("click", () => { state.mode = "menu"; render(); });
+  }
+
+  function renderPlaying() {
+    const canvasW = COLS * CELL;
+    const canvasH = ROWS * CELL;
+    const isPractice = state.gameMode === "practice";
+    root.innerHTML = `
+      <div id="hud" style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;"></div>
+
+      <div style="background: #0a0810; border-radius: 10px; padding: 8px; margin-bottom: 12px; display: flex; justify-content: center; overflow-x: auto;">
+        <canvas id="maze-canvas" width="${canvasW}" height="${canvasH}" style="border-radius: 6px; image-rendering: pixelated; max-width: 100%; height: auto;"></canvas>
+      </div>
+
+      <div style="display: flex; justify-content: center; gap: 4px; margin-bottom: 8px;">
+        <div style="width: 56px;"></div>
+        <button class="dpad" data-dir="up">↑</button>
+        <div style="width: 56px;"></div>
+      </div>
+      <div style="display: flex; justify-content: center; gap: 4px;">
+        <button class="dpad" data-dir="left">←</button>
+        <button class="dpad" data-dir="down">↓</button>
+        <button class="dpad" data-dir="right">→</button>
+      </div>
+
+      <div style="text-align: center; margin-top: 12px; font-size: 12px; color: #a0a0c0;">
+        ${isPractice ? 'Practice mode · reach the portal to regenerate the maze · end session anytime' : 'Arrow keys / WASD · tap D-pad on touch'}
+      </div>
+    `;
+    updateHUD();
+    drawMaze();
+    document.querySelectorAll(".dpad").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const d = btn.getAttribute("data-dir");
+        if (d === "up") movePlayer(0, -1);
+        if (d === "down") movePlayer(0, 1);
+        if (d === "left") movePlayer(-1, 0);
+        if (d === "right") movePlayer(1, 0);
+      });
+    });
+  }
+
+  function renderCombat() {
+    const q = state.currentQuestion;
+    const color = BI_COLORS[q.bi];
+    const isBoss = state.currentMonster.isBoss;
+    const isPracticeBoss = state.gameMode === "practice" && state.practiceTier === 4;
+    const slimeColor = (isBoss || isPracticeBoss) ? TIER_COLORS[4] : TIER_COLORS[state.difficultyTier];
+    const tierLabel = TIER_LABELS[state.gameMode === "practice" ? state.practiceTier : state.difficultyTier];
+    const showBossTreatment = isBoss;
+
+    root.innerHTML = `
+      <div style="background: ${showBossTreatment ? 'linear-gradient(180deg, #501313 0%, #A32D2D 100%)' : 'linear-gradient(180deg, #2a2540 0%, #3d3658 100%)'}; border-radius: 10px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: center; gap: 40px; align-items: end;">
+        <canvas id="combat-hero" width="80" height="80" style="image-rendering: pixelated;"></canvas>
+        <div style="display: flex; flex-direction: column; align-items: center; padding-bottom: 4px;">
+          <div style="color: #FFFFFF; font-size: 15px; font-weight: 500; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">
+            ${showBossTreatment ? '👑 BOSS BATTLE!' : `⚔️ ${slimeColor.name}!`}
+          </div>
+          ${state.gameMode === "adventure" ? `<div style="font-size: 11px; color: #ccc; margin-top: 4px;">Lives ${"❤️".repeat(state.lives)}${"🖤".repeat(Math.max(0, 3 - state.lives))}</div>` : '<div style="font-size: 11px; color: #ccc; margin-top: 4px;">Practice · no life loss</div>'}
+          ${showBossTreatment ? '<div style="font-size: 11px; color: #ffc8c8; margin-top: 4px; font-weight: 500;">⚠️ Wrong answer = -2 lives</div>' : ''}
+        </div>
+        <canvas id="combat-slime" width="80" height="80" style="image-rendering: pixelated;"></canvas>
+      </div>
+
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+        <span class="badge" style="background: ${color.bg}; color: ${color.fg}; font-weight: 500;">Big Idea ${q.bi} · ${BI_NAMES[q.bi]}</span>
+        <span class="badge" style="background: #3d3658; color: #c0c0d0;">${tierLabel} tier${state.streak > 0 ? ' · 🔥 ' + state.streak : ''}</span>
+      </div>
+
+      <div class="panel">
+        <div style="font-size: 16px; line-height: 1.6; margin-bottom: 16px;">${escapeHtml(q.q)}</div>
+        <div id="choices" style="display: grid; grid-template-columns: 1fr; gap: 8px;">
+          ${q.choices.map((c, i) => renderChoice(c, i, q)).join("")}
+        </div>
+      </div>
+
+      <div id="combat-feedback"></div>
+    `;
+
+    const heroCanvas = document.getElementById("combat-hero");
+    const slimeCanvas = document.getElementById("combat-slime");
+    if (heroCanvas && slimeCanvas) {
+      const hctx = heroCanvas.getContext("2d");
+      const sctx = slimeCanvas.getContext("2d");
+      hctx.imageSmoothingEnabled = false;
+      sctx.imageSmoothingEnabled = false;
+      let ct = 0;
+      const heroP = { x: 0, y: 0, facing: 1 };
+      const slimeM = { x: 0, y: 0, bouncePhase: 0, isBoss: showBossTreatment };
+      function combatLoop() {
+        hctx.clearRect(0, 0, 80, 80);
+        sctx.clearRect(0, 0, 80, 80);
+        hctx.save();
+        hctx.translate(80/2 - CELL/2, 80/2 - CELL/2);
+        hctx.scale(1.5, 1.5);
+        hctx.translate(-CELL/2 + CELL/3, -CELL/2 + CELL/3);
+        drawSteve(hctx, 0, 0, heroP, ct);
+        hctx.restore();
+        sctx.save();
+        sctx.translate(80/2 - CELL/2, 80/2 - CELL/2);
+        sctx.scale(showBossTreatment ? 1.4 : 1.5, showBossTreatment ? 1.4 : 1.5);
+        sctx.translate(-CELL/2 + CELL/3, -CELL/2 + CELL/3);
+        drawSlime(sctx, 0, 0, slimeM, ct, slimeColor);
+        sctx.restore();
+        ct++;
+        if (state.mode === "combat") requestAnimationFrame(combatLoop);
+      }
+      combatLoop();
+    }
+
+    if (!state.showFeedback) {
+      document.querySelectorAll(".choice-btn").forEach(btn => {
+        btn.addEventListener("click", () => submitAnswer(parseInt(btn.getAttribute("data-idx"))));
+      });
+    } else {
+      const correct = state.selectedChoice === q.answer;
+      const fb = document.getElementById("combat-feedback");
+      const wouldDefeat = !correct && state.gameMode === "adventure" && state.lives <= 0;
+      let resultMsg, resultBg, resultFg;
+      if (correct && showBossTreatment) { resultMsg = '👑 BOSS DEFEATED! The portal is now yours.'; resultBg = "#2a4f1a"; resultFg = "#c8f0a0"; }
+      else if (correct) { resultMsg = state.gameMode === "practice" ? '✨ Slime defeated! Streak grows.' : '✨ Slime defeated! It splits into bits.'; resultBg = "#2a4f1a"; resultFg = "#c8f0a0"; }
+      else if (showBossTreatment) { resultMsg = `💔 The boss strikes hard — lost 2 lives. ${wouldDefeat ? 'No lives left!' : ''}`; resultBg = "#5a1818"; resultFg = "#f0c8c8"; }
+      else if (state.gameMode === "practice") { resultMsg = '❌ Not quite — no penalty in practice mode. Streak reset.'; resultBg = "#5a1818"; resultFg = "#f0c8c8"; }
+      else { resultMsg = `💔 Wrong answer — lost a life. ${wouldDefeat ? 'No lives left!' : ''}`; resultBg = "#5a1818"; resultFg = "#f0c8c8"; }
+
+      fb.innerHTML = `
+        <div style="background: ${resultBg}; color: ${resultFg}; padding: 12px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; margin-bottom: 10px;">${resultMsg}</div>
+        <div class="panel">
+          <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: #a0a0c0; margin-bottom: 6px;">Correct answer: ${["A","B","C","D"][q.answer]}</div>
+          <div style="font-size: 14px; line-height: 1.6;">${escapeHtml(q.exp)}</div>
+        </div>
+        <div style="display: flex; justify-content: flex-end;">
+          <button id="resume-btn" style="font-weight: 500;">${wouldDefeat ? 'See results →' : (state.gameMode === "practice" ? 'Keep going →' : 'Back to the maze →')}</button>
+        </div>
+      `;
+      document.getElementById("resume-btn").addEventListener("click", resumeGame);
+    }
+  }
+
+  function renderChoice(text, i, q) {
+    const letter = ["A","B","C","D"][i];
+    let cls = "choice-btn";
+    if (state.showFeedback) {
+      if (i === q.answer) cls += " correct";
+      else if (i === state.selectedChoice && i !== q.answer) cls += " wrong";
+      else cls += " choice-btn-faded";
+    }
+    return `
+      <button class="${cls}" data-idx="${i}" ${state.showFeedback ? "disabled" : ""} style="${state.showFeedback && i !== q.answer && i !== state.selectedChoice ? 'opacity: 0.5;' : ''}">
+        <span style="font-weight: 500; min-width: 18px;">${letter}.</span>
+        <span style="flex: 1;">${escapeHtml(text)}</span>
+      </button>
+    `;
+  }
+
+  function renderVictory() {
+    const mins = Math.floor(state.elapsedTime / 60);
+    const secs = state.elapsedTime % 60;
+    const timeStr = mins + ":" + (secs < 10 ? "0" : "") + secs;
+    const acc = state.questionsAnswered > 0 ? Math.round((state.correctAnswers / state.questionsAnswered) * 100) : 100;
+    const bossSkipped = state.bossSkipped === true;
+    const bossDefeated = !state.boss && !bossSkipped;
+    let headline, subline;
+    if (bossDefeated) { headline = 'You escaped!'; subline = 'The boss fell. The portal closes behind you.'; }
+    else if (bossSkipped) { headline = 'You snuck past!'; subline = 'You slipped past the boss at the cost of 1 ❤️. Try facing it next time!'; }
+    else { headline = 'You escaped!'; subline = 'The portal closes behind you.'; }
+    root.innerHTML = `
+      <div style="background: linear-gradient(180deg, #3C3489 0%, #7F77DD 100%); border-radius: 10px; padding: 32px 16px; margin-bottom: 20px; text-align: center;">
+        <canvas id="victory-canvas" width="200" height="100" style="image-rendering: pixelated;"></canvas>
+        <h1 style="font-size: 28px; margin: 12px 0 6px; color: #FFFFFF; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">${headline}</h1>
+        <p style="font-size: 14px; color: #EEEDFE; margin: 0;">${subline}</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Time</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${timeStr}</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Lives left</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${"❤️".repeat(state.lives)}</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Slimes defeated</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${state.monstersDefeated}${bossDefeated ? ' + 👑' : ''}</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Accuracy</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${state.correctAnswers}/${state.questionsAnswered} · ${acc}%</div></div>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: center;">
+        <button id="restart" style="font-weight: 500;">New dungeon →</button>
+        <button id="to-menu">Main menu</button>
+      </div>
+    `;
+    const vc = document.getElementById("victory-canvas");
+    if (vc) {
+      const ctx = vc.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      let vt = 0;
+      const p = { x: 0, y: 0, facing: 1 };
+      function vLoop() {
+        ctx.clearRect(0, 0, 200, 100);
+        drawPortal(ctx, 70, 30, vt);
+        drawSteve(ctx, 110, 30, p, vt);
+        vt++;
+        if (state.mode === "victory") requestAnimationFrame(vLoop);
+      }
+      vLoop();
+    }
+    document.getElementById("restart").addEventListener("click", () => startGame("adventure"));
+    document.getElementById("to-menu").addEventListener("click", () => { state.mode = "menu"; render(); });
+  }
+
+  function renderDefeat() {
+    root.innerHTML = `
+      <div style="background: linear-gradient(180deg, #501313 0%, #A32D2D 100%); border-radius: 10px; padding: 32px 16px; margin-bottom: 20px; text-align: center;">
+        <div style="font-size: 60px; margin-bottom: 8px;">💀</div>
+        <h1 style="font-size: 28px; margin: 0 0 6px; color: #FFFFFF;">Game over</h1>
+        <p style="font-size: 14px; color: #F7C1C1; margin: 0;">The slime blocks overwhelmed you. A new dungeon awaits.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Questions</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${state.questionsAnswered}</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Correct</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${state.correctAnswers}</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Slimes defeated</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${state.monstersDefeated}</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Peak difficulty</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${TIER_LABELS[state.difficultyTier]}</div></div>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: center;">
+        <button id="restart" style="font-weight: 500;">Try again →</button>
+        <button id="to-menu">Main menu</button>
+      </div>
+    `;
+    document.getElementById("restart").addEventListener("click", () => startGame("adventure"));
+    document.getElementById("to-menu").addEventListener("click", () => { state.mode = "menu"; render(); });
+  }
+
+  function renderPracticeSummary() {
+    const mins = Math.floor(state.elapsedTime / 60);
+    const secs = state.elapsedTime % 60;
+    const timeStr = mins + ":" + (secs < 10 ? "0" : "") + secs;
+    const acc = state.questionsAnswered > 0 ? Math.round((state.correctAnswers / state.questionsAnswered) * 100) : 0;
+    const tierColor = TIER_COLORS[state.practiceTier];
+    let feedback;
+    if (state.questionsAnswered === 0) feedback = "No questions answered yet. Try again!";
+    else if (acc >= 90) feedback = "Excellent. You're ready to move up a tier.";
+    else if (acc >= 75) feedback = "Solid. A few more reps and you've got it.";
+    else if (acc >= 60) feedback = "Getting there. Review the misses and try again.";
+    else feedback = "Drop down a tier or review the explanations carefully.";
+
+    root.innerHTML = `
+      <div style="background: linear-gradient(180deg, ${tierColor.dark} 0%, ${tierColor.body} 100%); border-radius: 10px; padding: 32px 16px; margin-bottom: 20px; text-align: center;">
+        <canvas id="summary-canvas" width="80" height="80" style="image-rendering: pixelated;"></canvas>
+        <h1 style="font-size: 24px; margin: 12px 0 6px; color: #FFFFFF; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">Practice session ended</h1>
+        <p style="font-size: 14px; color: rgba(255,255,255,0.85); margin: 0;">${TIER_LABELS[state.practiceTier]} tier · ${feedback}</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Questions</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${state.questionsAnswered}</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Accuracy</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${state.correctAnswers}/${state.questionsAnswered} · ${acc}%</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Best streak</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${state.bestStreak > 0 ? '🔥' : ''}${state.bestStreak}</div></div>
+        <div class="panel" style="text-align: center; margin-bottom:0;"><div style="font-size: 11px; color: #a0a0c0; text-transform: uppercase;">Time</div><div style="font-size: 22px; font-weight: 500; margin-top: 4px;">${timeStr}</div></div>
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+        <button id="same-tier" style="font-weight: 500;">Same tier again</button>
+        <button id="pick-tier">Pick a different tier</button>
+        <button id="to-menu">Main menu</button>
+      </div>
+    `;
+    const sc = document.getElementById("summary-canvas");
+    if (sc) {
+      const ctx = sc.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      let st = 0;
+      const slimeM = { x: 0, y: 0, bouncePhase: 0, isBoss: state.practiceTier === 4 };
+      function sLoop() {
+        ctx.clearRect(0, 0, 80, 80);
+        ctx.save();
+        ctx.translate(80/2 - CELL/2, 80/2 - CELL/2);
+        ctx.scale(1.3, 1.3);
+        ctx.translate(-CELL/2 + CELL/4, -CELL/2 + CELL/4);
+        drawSlime(ctx, 0, 0, slimeM, st, tierColor);
+        ctx.restore();
+        st++;
+        if (state.mode === "practice_summary") requestAnimationFrame(sLoop);
+      }
+      sLoop();
+    }
+    document.getElementById("same-tier").addEventListener("click", () => startGame("practice", state.practiceTier));
+    document.getElementById("pick-tier").addEventListener("click", () => { state.mode = "practice_menu"; render(); });
+    document.getElementById("to-menu").addEventListener("click", () => { state.mode = "menu"; render(); });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (state.mode !== "playing") return;
+    const key = e.key.toLowerCase();
+    if (key === "arrowup" || key === "w") { e.preventDefault(); movePlayer(0, -1); }
+    else if (key === "arrowdown" || key === "s") { e.preventDefault(); movePlayer(0, 1); }
+    else if (key === "arrowleft" || key === "a") { e.preventDefault(); movePlayer(-1, 0); }
+    else if (key === "arrowright" || key === "d") { e.preventDefault(); movePlayer(1, 0); }
+  });
+
+  renderMenu();
+})();
+</script>
+</body>
+</html>
